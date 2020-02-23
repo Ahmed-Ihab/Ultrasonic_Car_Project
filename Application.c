@@ -84,13 +84,15 @@ static uint8 g_u8_LCD_Available_Flag = AVALIABLE;
 static float32 g_f32_Distance = 0;
 static uint8 *Distance_String ="Distance=   cm";
 static uint8 *Echo_String = "Echo=   ms";
+static uint8 *Duty_Cycle_String = "Duty_Cycle=   %";
+static uint8 * Space_String = "   ";		
 static uint32 g_u32_Echo_Time_On = 0;
 static uint32 g_u32_Echo_Timer_Count=0;
 
 static uint8 g_u8_LCD_Row=255;
 static uint8 g_u8_LCD_Column=255;
 
-static uint8 g_u8_LCD_Print_Numbers = 0;
+static uint32 g_u32_LCD_Print_Numbers = 0;
 static uint8 * g_u8_LCD_Print_String = NULL_POINTER;
 //--------------------------------------------------------------------------------------------------//
 
@@ -218,645 +220,269 @@ void Ultrasonic_Echo_Measure_Time_ON_ISR_Handler (void)
  }
 
 
-void TASK_Init (void * POINTERVOID )
+void TASK_Init (void * POINTERVOID)
 {
-	if(g_u8_Initialization_Flag == 0)
+	while(1)
 	{
-		EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_INIT); //test
-		
-		static Function_Process_t LCD_State = NOT_FINISHED;
-		static uint8 local_u8_init_Flag = 0;
-		if(local_u8_init_Flag == 0)
+		if(g_u8_Initialization_Flag == 0)
 		{
-			DIO_init();
-			INTP_vidInit();
-			TIMER_ID_init(timer1);
-			TIMER_ID_init(timer0);
-			PWM_Init();
-			MOTORS_Initialization();
-			INTP2_vidSetCallBack(Ultrasonic_Echo_Measure_Time_ON_ISR_Handler);
-			Timer0_OVF_Set_Callback(Count_Overflow_Timer0_ISR_Handler);
-			local_u8_init_Flag = 1;
+			EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_INIT); //test
+			
+			static Function_Process_t LCD_State = NOT_FINISHED;
+			static uint8 local_u8_init_Flag = 0;
+			if(local_u8_init_Flag == 0)
+			{
+				DIO_init();
+				INTP_vidInit();
+				TIMER_ID_init(timer1);
+				TIMER_ID_init(timer0);
+				PWM_Init();
+				MOTORS_Initialization();
+				INTP2_vidSetCallBack(Ultrasonic_Echo_Measure_Time_ON_ISR_Handler);
+				Timer0_OVF_Set_Callback(Count_Overflow_Timer0_ISR_Handler);
+				local_u8_init_Flag = 1;
+			}
+			
+			LCD_State = LCD_4Bits_Initialization_OS();
+			
+			if(LCD_State == FINISHED)
+			{
+				g_u8_Initialization_Flag = 1;
+				LCD_4Bits_Print_String(1,1,Distance_String);
+				//LCD_4Bits_Print_String(2,1,Echo_String);
+				LCD_4Bits_Print_String(2,1,Duty_Cycle_String);
+				//LCD_4Bits_Print_Character(2,15,'%');
+				//OS_Delete_Task(&Task_1_Info);
+				//vTaskSuspend(NULL);
+			}
+			EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_INIT); //test
 		}
 		
-		LCD_State = LCD_4Bits_Initialization_OS();
-		
-		if(LCD_State == FINISHED)
-		{
-			//LCD_4Bits_Print_Number(1,1,OCR2); //test
-			g_u8_Initialization_Flag = 1;
-			LCD_4Bits_Print_String(1,1,Distance_String);
-			LCD_4Bits_Print_String(2,1,Echo_String);
-			LCD_4Bits_Print_Character(2,15,'%');
-			//OS_Delete_Task(&Task_1_Info);
-		}
-		EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_INIT); //test	
+		vTaskDelay(1);
 	}
+	
 }
 
-void Task_Ultrasonic_Trigger(void * POINTERVOID)
-{
 
-	if(g_u8_Initialization_Flag == 1)
+
+void Task_Ultrasonic_Trigger (void * POINTERVOID)
+{
+	while(1)
 	{
-		EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_TRIGGER); //test
-		/*
-		g_u8_Task_Trigger_Counter++;
+		if(g_u8_Initialization_Flag == 1)
+		{
+			EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_TRIGGER); //test
+			/*
+			g_u8_Task_Trigger_Counter++;
 		
-		if (g_u8_Task_Trigger_Counter > 200);
-		{
-			g_u8_Trigger_Active_Flag= ACTIVE_TRIGGER;
-		}
-		*/	
-		 if(g_u8_Trigger_Active_Flag == ACTIVE_TRIGGER)
-		{
-			//g_u8_Task_Trigger_Counter=0;	  
-			DIO_Write_Pin(TRIGGER_PORT_,TRIGGER_PIN , HIGH);
-			//Time_Delay(timer2,500,us);
-			_delay_us(50);
-			DIO_Write_Pin(TRIGGER_PORT_,TRIGGER_PIN , LOW);
+			if (g_u8_Task_Trigger_Counter > 200);
+			{
+				g_u8_Trigger_Active_Flag= ACTIVE_TRIGGER;
+			}
+			*/	
+			 if(g_u8_Trigger_Active_Flag == ACTIVE_TRIGGER)
+			{
+				//g_u8_Task_Trigger_Counter=0;	  
+				DIO_Write_Pin(TRIGGER_PORT_,TRIGGER_PIN , HIGH);
+				//Time_Delay(timer2,500,us);
+				_delay_us(50);
+				DIO_Write_Pin(TRIGGER_PORT_,TRIGGER_PIN , LOW);
 			
-			g_u8_Trigger_Active_Flag = DEACTIVE_TRIGGER;
+				g_u8_Trigger_Active_Flag = DEACTIVE_TRIGGER;
+			}
+		EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_TRIGGER); //test
 		}
-	EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_TRIGGER); //test
+		vTaskDelay(1);
 	}
 	
 }
 
  
+ void Task_Distance (void * POINTERVOID)
+ {
+	 while(1)
+	 {
+		 static uint16 local_u16_Task_Counter=0;
+		 
+		 if(g_u8_Initialization_Flag == 1)
+		 {
+			 EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISTANCE);
+			 
+			 static uint8 local_u8_Duty_Cycle = 0;
+			 
+			 if(g_u8_Manipulation_on_Distance_Flag == 1)
+			 {
+				 if(g_f32_Distance >= 400)
+				 {
+					 local_u8_Duty_Cycle = 60;
+					 MOTOR_Direction(MOTOR_1,FORWARD);
+					 MOTOR_Direction(MOTOR_2,FORWARD);
+					 PWM_Timer1_Generate(local_u8_Duty_Cycle,1000,Channel_A_B,Non_Inverting_PWM);
+					 g_u8_Duty_Cycle_Display = local_u8_Duty_Cycle;
+				 }
+				 
+				 else if( (g_f32_Distance > 40) && (g_f32_Distance < 400) )
+				 {
+					 local_u16_Task_Counter = 0;	//Reset the Counter after the car has been away from object by 40cm
+					 
+					 local_u8_Duty_Cycle = 40;
+					 MOTOR_Direction(MOTOR_1,FORWARD);
+					 MOTOR_Direction(MOTOR_2,FORWARD);
+					 PWM_Timer1_Generate(local_u8_Duty_Cycle,1000,Channel_A_B,Non_Inverting_PWM);
+					 g_u8_Duty_Cycle_Display = local_u8_Duty_Cycle;
+					 
+				 }
+				 
+				 else if (g_f32_Distance < 20)
+				 {
+					 
+					 if(local_u16_Task_Counter < 1000)
+					 {
+						 g_u8_Duty_Cycle_Display = 0;
+						 local_u16_Task_Counter++;
+						 MOTOR_Stop(MOTOR_1);
+						 MOTOR_Stop(MOTOR_2);
+					 }
+					 else
+					 {
+						 PORTC ^= (1<<PC4);
+						 local_u8_Duty_Cycle = 20;
+						 MOTOR_Direction(MOTOR_1,BACKWARD);
+						 MOTOR_Direction(MOTOR_2,BACKWARD);
+						 PWM_Timer1_Generate(local_u8_Duty_Cycle,1000,Channel_A_B,Non_Inverting_PWM);
+						 g_u8_Duty_Cycle_Display = local_u8_Duty_Cycle;
+					 }
 
-void Task_Distance(void * POINTERVOID)
+				 }
+				 g_u8_Manipulation_on_Distance_Flag=0;
+			 }
+			 EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISTANCE);	//test
+		 }
+		 
+		 vTaskDelay(1);
+	 }
+	 
+ }
+
+
+
+void Task_Display (void * POINTERVOID)
 {
-	
-	static uint16 local_u16_Task_Counter=0;
-	
-	if(g_u8_Initialization_Flag == 1)
+	while(1)
 	{
-		EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISTANCE);
-			
-		static uint8 local_u8_Duty_Cycle = 0;
 		
-		if(g_u8_Manipulation_on_Distance_Flag == 1)
-		{
-			if(g_f32_Distance >= 400)
-			{
-				local_u8_Duty_Cycle = 60;
-				MOTOR_Direction(MOTOR_1,FORWARD);
-				MOTOR_Direction(MOTOR_2,FORWARD);
-				PWM_Timer1_Generate(local_u8_Duty_Cycle,1000,Channel_A_B,Non_Inverting_PWM);
-				g_u8_Duty_Cycle_Display = local_u8_Duty_Cycle;
-			}
-			
-			else if( (g_f32_Distance > 40) && (g_f32_Distance < 400) )
-			{
-				local_u16_Task_Counter = 0;	//Reset the Counter after the car has been away from object by 40cm
-				
-				local_u8_Duty_Cycle = 40;
-				MOTOR_Direction(MOTOR_1,FORWARD);
-				MOTOR_Direction(MOTOR_2,FORWARD);
-				PWM_Timer1_Generate(local_u8_Duty_Cycle,1000,Channel_A_B,Non_Inverting_PWM);
-				g_u8_Duty_Cycle_Display = local_u8_Duty_Cycle;
-				
-			}
-			
-			else if (g_f32_Distance < 20) 
-			{
-				
-				if(local_u16_Task_Counter < 1000)
-				{	
-					g_u8_Duty_Cycle_Display = 0;
-					local_u16_Task_Counter++;
-					MOTOR_Stop(MOTOR_1);
-					MOTOR_Stop(MOTOR_2);	
-				}
-				else
-				{	
-					PORTC ^= (1<<PC4);
-					local_u8_Duty_Cycle = 20;
-					MOTOR_Direction(MOTOR_1,BACKWARD);
-					MOTOR_Direction(MOTOR_2,BACKWARD);
-					PWM_Timer1_Generate(local_u8_Duty_Cycle,1000,Channel_A_B,Non_Inverting_PWM);
-					g_u8_Duty_Cycle_Display = local_u8_Duty_Cycle;
-				}
-
-			}
-			g_u8_Manipulation_on_Distance_Flag=0;
-		}
-	EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISTANCE);	//test
-	}
-}
-
-
-void Task_Display(void * POINTERVOID)
-{
-	
-	if(g_u8_Initialization_Flag == 1)
-	{
-		EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISPLAY); //test
-		if(g_u8_Display_Flag == 1)
-		{
-			if ( g_f32_Distance < 9 )
-			{
-				LCD_4Bits_Print_Number(1,10,0);
-				LCD_4Bits_Print_Number(1,11,0);
-				LCD_4Bits_Print_Number(1,12,g_f32_Distance);
-			}
-			
-			else if ( ( g_f32_Distance > 9 ) && ( g_f32_Distance < 99 ) )
-			{
-				LCD_4Bits_Print_Number(1,10,0);
-				LCD_4Bits_Print_Number(1,11,g_f32_Distance);
-			}
-			
-			else if ( ( g_f32_Distance > 99 ) && ( g_f32_Distance < 999 ) )
-			{					
-				LCD_4Bits_Print_Number(1,10,g_f32_Distance);
-			}
-			
-			else
-			{
-				//Do Nothing
-			}
-			
-
-
-			if(g_u8_Duty_Cycle_Display < 10)
-			{
-				LCD_4Bits_Print_Number(2,12,0);
-				LCD_4Bits_Print_Number(2,13,g_u8_Duty_Cycle_Display);
-			}
-			
-			else if ( (g_u8_Duty_Cycle_Display > 10) && (g_u8_Duty_Cycle_Display < 100) )
-			{
-				LCD_4Bits_Print_Number(2,12,g_u8_Duty_Cycle_Display);
-			}
-			
-			else
-			{
-				LCD_4Bits_Print_Number(2,11,g_u8_Duty_Cycle_Display);
-				
-			}
-//------------------------------------------------------------------------------------------------//
-			if ( g_u32_Echo_Time_On < 9 )
-			{	
-				LCD_4Bits_Print_Number(2,6,0);					//test Echo time
-				LCD_4Bits_Print_Number(2,7,0);					//test Echo time
-				LCD_4Bits_Print_Number(2,8,g_u32_Echo_Time_On);	//test Echo time
-				
-			}
-			
-			else if ( ( g_u32_Echo_Time_On > 9 ) && ( g_u32_Echo_Time_On < 99 ) )
-			{
-				LCD_4Bits_Print_Number(2,6,0);					//test Echo time
-				LCD_4Bits_Print_Number(2,7,g_u32_Echo_Time_On);	//test Echo time
-			}
-			
-			else if ( ( g_u32_Echo_Time_On > 99 ) && ( g_u32_Echo_Time_On < 999 ) )
-			{
-				LCD_4Bits_Print_Number(2,6,g_u32_Echo_Time_On);	//test Echo time
-				
-			}
-			
-			else
-			{
-				//Do Nothing
-			}
-
-//------------------------------------------------------------------------------------------------//
-			g_u8_Display_Flag=0;
-		}
+		static uint32 local_u32_Distance_Display = 0;
+		static uint32 local_u32_Duty_Cycle_Display = 0;
 		
-		EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISPLAY); //test
-	}
-}
-
-/*
-void Task_Display(void * POINTERVOID)
-{
-	static Display_mode_t Display_mode = DISTANCE_MODE;
-	static Display_Number_t Display_Digit=ZERO_HUNDREDTH;	
-	static Data_Digit_t Display_Distance_Digit = 255;
-	static Data_Digit_t Display_Echo_Digit = 255;
-	static uint8 local_u8_Task_Counter = 0;
-	static uint8 local_u32_Distance = 0;
-	static uint8 local_u32_Echo_Time = 0;
-	
-	//static volatile uint8 local_u8_update_Flag = 0;
-	if(g_u8_Initialization_Flag == 1)
-	{
-		EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISPLAY); //test
-
-		if(g_u8_Display_Flag == 1)
+		static uint32 local_u32_Old_Distance_Display = 0;
+		static uint32 local_u32_Old_Duty_Cycle_Display = 0;
+		
+		static Print_Order_t Print_Order = PRINT_DISTANCE;
+		
+		//static uint32 local_u32_Echo_Time_On_Display=0;
+		//static uint32 local_u32_Old_Echo_Time_On_Display=0;
+		
+		if(g_u8_Initialization_Flag == 1)
 		{
-			if (local_u8_Task_Counter > (UPDATE_DISPLAY_TIME-1) )
+			EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISPLAY); //test
+			if(g_u8_Display_Flag == 1)
 			{
-				local_u8_Task_Counter=0;
-			
-			}
-			else
-			{
-				local_u8_Task_Counter++;
-				switch(Display_mode)
+				switch(Print_Order)
 				{
-					case DISTANCE_MODE:
+					case PRINT_DISTANCE:
 					{
-						if ( (local_u8_Task_Counter <= UPDATE_DISPLAY_TIME) )
-						{
-							if(Display_Distance_Digit == CONSISTING_ONE_DIGIT)
-							{
-								switch(Display_Digit)
-								{
-									case ZERO_HUNDREDTH:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=0;
-											g_u8_LCD_Row=1;
-											g_u8_LCD_Column=10;
-											Display_Digit=ZERO_TENTH;
-										}
-										break;
-									}
-									
-									case ZERO_TENTH:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=0;
-											g_u8_LCD_Row=1;
-											g_u8_LCD_Column=11;
-											Display_Digit=NUMBER;
-										}
-										break;
-									}
-									
-									case NUMBER:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=local_u32_Distance;
-											g_u8_LCD_Row=1;
-											g_u8_LCD_Column=12;
-											Display_Digit=ZERO_HUNDREDTH;
-											if(local_u8_Task_Counter == UPDATE_DISPLAY_TIME)
-											{
-												Display_mode=ECHO_TIME_MODE;
-											}
-										}
-										break;
-									}
-									
-									default:
-									{
-										// Shouldn't be here
-										break;
-									}
-								}
-							}
-							
-							else if(Display_Distance_Digit == CONSISTING_TWO_DIGIT)
-							{
-								switch(Display_Digit)
-								{
-									case ZERO_HUNDREDTH:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=0;
-											g_u8_LCD_Row=1;
-											g_u8_LCD_Column=10;
-											Display_Digit=ZERO_TENTH;
-										}
-										break;
-									}
-									
-									case ZERO_TENTH:
-									{
-										Display_Digit=NUMBER;
-										break;
-									}
-									
-									case NUMBER:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=local_u32_Distance;
-											g_u8_LCD_Row=1;
-											g_u8_LCD_Column=11;
-											Display_Digit=ZERO_HUNDREDTH;
-											if(local_u8_Task_Counter == UPDATE_DISPLAY_TIME)
-											{
-												Display_mode=ECHO_TIME_MODE;
-											}
-										}
-										break;
-									}
-									
-									default:
-									{
-										//shouldn't be here
-										break;
-									}
-								}
-							}
-							
-							else if(Display_Distance_Digit == CONSISTING_THREE_DIGIT)
-							{
-								switch(Display_Digit)
-								{
-									case ZERO_HUNDREDTH:
-									{
-										Display_Digit=ZERO_TENTH;
-										break;
-									}
-									
-									case ZERO_TENTH:
-									{
-										Display_Digit=NUMBER;
-										break;
-									}
-									
-									case NUMBER:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=local_u32_Distance;
-											g_u8_LCD_Row=1;
-											g_u8_LCD_Column=10;
-											Display_Digit=ZERO_HUNDREDTH;
-											if(local_u8_Task_Counter == UPDATE_DISPLAY_TIME)
-											{
-												Display_mode=ECHO_TIME_MODE;
-											}		
-										}
-										break;
-									}
-									
-									default:
-									{
-										//shouldn't be here
-										break;
-									}
-								}
-							}	
-						}
+						local_u32_Old_Distance_Display = local_u32_Distance_Display;		//Keep the Old Sample in a temp
+						local_u32_Distance_Display = g_f32_Distance;						//Store new Sample
 						
-						 if(local_u8_Task_Counter == UPDATE_DISPLAY_TIME)
+						
+						if (local_u32_Old_Distance_Display != local_u32_Distance_Display)
 						{
-							if ( ( g_f32_Distance < 9 ) )
+							if(g_u8_LCD_Available_Flag == AVALIABLE)
 							{
-								Display_Distance_Digit = CONSISTING_ONE_DIGIT;
-								local_u32_Distance= g_f32_Distance;
+								LCD_4Bits_Print_String(1,10,Space_String);
 								
-							}
-							
-							else if  (( g_f32_Distance > 9 ) && ( g_f32_Distance < 99 ) )
-							{
-								Display_Distance_Digit = CONSISTING_TWO_DIGIT;
-								local_u32_Distance= g_f32_Distance;
+								g_u8_LCD_Request_Flag = REQUEST;
+								g_u8_LCD_Row = 1;
+								g_u8_LCD_Column = 10;
+								g_u32_LCD_Print_Numbers = local_u32_Distance_Display;
 								
-							}
-							
-							else if ( ( g_f32_Distance > 99 ) )
-							{
-								Display_Distance_Digit = CONSISTING_THREE_DIGIT;
-								local_u32_Distance= g_f32_Distance;
+								//LCD_4Bits_Print_Number(1,10,local_u32_Distance_Display);
 								
-							}
-							
-							else
-							{
-								//DO NOTHING
-							}
-						}
-
-						break;
-					}
-//----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
-
-					case ECHO_TIME_MODE:
-					{
-						if((local_u8_Task_Counter <= UPDATE_DISPLAY_TIME))
-						{
-							if(Display_Echo_Digit == CONSISTING_ONE_DIGIT)
-							{
-								switch(Display_Digit)
-								{
-									case ZERO_HUNDREDTH:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=0;
-											g_u8_LCD_Row=2;
-											g_u8_LCD_Column=6;
-											Display_Digit=ZERO_TENTH;
-										}
-										break;
-									}
-									
-									case ZERO_TENTH:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=0;
-											g_u8_LCD_Row=2;
-											g_u8_LCD_Column=7;
-											Display_Digit=NUMBER;
-										}
-										break;
-									}
-									
-									case NUMBER:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=local_u32_Echo_Time;
-											g_u8_LCD_Row=2;
-											g_u8_LCD_Column=8;
-											Display_Digit=ZERO_HUNDREDTH;
-											if(local_u8_Task_Counter == UPDATE_DISPLAY_TIME)
-											{
-												Display_mode=DISTANCE_MODE;
-											}
-										}
-										break;
-									}
-									
-									default:
-									{
-										// Shouldn't be here
-										break;
-									}
-								}
-							}
-							
-							else if(Display_Echo_Digit == CONSISTING_TWO_DIGIT)
-							{
-								switch(Display_Digit)
-								{
-									case ZERO_HUNDREDTH:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=0;
-											g_u8_LCD_Row=2;
-											g_u8_LCD_Column=6;
-											Display_Digit=ZERO_TENTH;
-										}
-										break;
-									}
-									
-									case ZERO_TENTH:
-									{
-										Display_Digit=NUMBER;
-										break;
-									}
-									
-									case NUMBER:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=local_u32_Echo_Time;
-											g_u8_LCD_Row=2;
-											g_u8_LCD_Column=7;
-											Display_Digit=ZERO_HUNDREDTH;
-											if(local_u8_Task_Counter == UPDATE_DISPLAY_TIME)
-											{
-												Display_mode=DISTANCE_MODE;
-											}
-										}
-										break;
-									}
-									
-									default:
-									{
-										//shouldn't be here
-										break;
-									}
-								}
-							}
-							
-							else if(Display_Echo_Digit == CONSISTING_THREE_DIGIT)
-							{
-								switch(Display_Digit)
-								{
-									case ZERO_HUNDREDTH:
-									{
-										Display_Digit=ZERO_TENTH;
-										break;
-									}
-									
-									case ZERO_TENTH:
-									{
-										Display_Digit=NUMBER;
-										break;
-									}
-									case NUMBER:
-									{
-										if(g_u8_LCD_Available_Flag == AVALIABLE)
-										{
-											g_u8_LCD_Request_Flag = REQUEST;
-											g_u8_LCD_Print_Numbers=local_u32_Echo_Time;
-											g_u8_LCD_Row=2;
-											g_u8_LCD_Column=6;
-											Display_Digit=ZERO_HUNDREDTH;
-											if(local_u8_Task_Counter == UPDATE_DISPLAY_TIME)
-											{
-												Display_mode=DISTANCE_MODE;
-											}
-										}
-										break;
-									}
-									
-									default:
-									{
-										//shouldn't be here
-										break;
-									}
-								}
 							}
 						}
 						
-						if(local_u8_Task_Counter == UPDATE_DISPLAY_TIME)
-						{
-							if ( ( g_u32_Echo_Time_On < 9 ) )
-							{
-								Display_Echo_Digit = CONSISTING_ONE_DIGIT;
-								local_u32_Echo_Time = g_u32_Echo_Time_On;
-								
-							}
-							
-							else if  (( g_u32_Echo_Time_On > 9 ) && ( g_u32_Echo_Time_On < 99 ) )
-							{
-								Display_Echo_Digit = CONSISTING_TWO_DIGIT;
-								local_u32_Echo_Time = g_u32_Echo_Time_On;
-							}
-							
-							else if ( ( g_u32_Echo_Time_On > 999 ) )
-							{
-								Display_Echo_Digit = CONSISTING_THREE_DIGIT;
-								local_u32_Echo_Time = g_u32_Echo_Time_On;
-								
-							}
-							
-							else
-							{
-								//Do NOTHING
-							}
-						}
-						
+						Print_Order = PRINT_DUTY_CYCLE;
 						break;
 					}
 					
-					
-					case DUTY_CYCLE_MODE:
+					case PRINT_DUTY_CYCLE:
 					{
+						local_u32_Old_Duty_Cycle_Display = local_u32_Duty_Cycle_Display;		    //Keep the Old Sample in a temp
+						local_u32_Duty_Cycle_Display = g_u8_Duty_Cycle_Display;						//Store new Sample
 						
+						if (local_u32_Old_Duty_Cycle_Display != local_u32_Duty_Cycle_Display)
+						{
+							if(g_u8_LCD_Available_Flag == AVALIABLE)
+							{
+								LCD_4Bits_Print_String(2,12,Space_String);
+								
+								g_u8_LCD_Request_Flag = REQUEST;
+								g_u8_LCD_Row = 2;
+								g_u8_LCD_Column = 12;
+								g_u32_LCD_Print_Numbers = local_u32_Duty_Cycle_Display;
+								
+								//LCD_4Bits_Print_Number(2,12,local_u32_Duty_Cycle_Display);
+
+							}
+							
+						}
+						g_u8_Display_Flag=0;
+						Print_Order = PRINT_DISTANCE;
 						break;
 					}
 					
 					default:
 					{
 						//Shouldn't be here
-						//Do Nothing
 						break;
 					}
+					
 				}
 				
-				
-			}	
+			}
 			
+			EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISPLAY); //test
 		}
-		EXECUTION_TIME_OF_TASK_PORT ^= (1<<TASK_DISPLAY); //test
-	}
-}
-*/
-
-void Task_LCD_Print (void * POINTERVOID)
-{
-	if(g_u8_Initialization_Flag == 1)
-	{
-		if(g_u8_LCD_Request_Flag == REQUEST)
-		{
-			g_u8_LCD_Available_Flag = UNAVALIABLE;
-			LCD_4Bits_Print_Number(g_u8_LCD_Row,g_u8_LCD_Column,g_u8_LCD_Print_Numbers);
-			g_u8_LCD_Available_Flag = AVALIABLE;
-			g_u8_LCD_Request_Flag=REQUEST_FINISHED;
-		}
+		vTaskDelay(30);
 	}
 	
 }
+
+
+void Task_LCD_Print (void * POINTERVOID)
+{
+	while(1)
+	{
+		
+		if(g_u8_Initialization_Flag == 1)
+		{
+			if(g_u8_LCD_Request_Flag == REQUEST)
+			{
+				g_u8_LCD_Available_Flag = UNAVALIABLE;
+				LCD_4Bits_Print_Number(g_u8_LCD_Row,g_u8_LCD_Column,g_u32_LCD_Print_Numbers);
+				g_u8_LCD_Available_Flag = AVALIABLE;
+				g_u8_LCD_Request_Flag=REQUEST_FINISHED;
+			}
+		}
+		vTaskDelay(1);
+	}
+	
+}
+
+
+
+
+
 
 
 

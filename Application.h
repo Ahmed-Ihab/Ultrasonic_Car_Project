@@ -16,8 +16,11 @@
 #include "..\HAL\LCD\LCD.h"
 #include "..\HAL\DC_Motor\DC_Motor.h"
 
-#include "../OS/OS.h"
-
+#include "../FreeRTOS/FreeRTOS.h"
+#include "../FreeRTOS/task.h"
+#include "../FreeRTOS/queue.h"
+#include "../FreeRTOS/event_groups.h"
+#include "../FreeRTOS/semphr.h"
 
 /*
 #include "std_types.h"
@@ -40,10 +43,8 @@
 
 
 //------------ Section of enum  -------------------------------------------//
-typedef enum {DISTANCE_MODE , ECHO_TIME_MODE , DUTY_CYCLE_MODE}Display_mode_t;
-typedef enum {ZERO_HUNDREDTH,ZERO_TENTH,NUMBER}Display_Number_t;
-//typedef enum {UNITH,TENTH,HUNDREDTH}Data_Digit_t;
-typedef enum {CONSISTING_ONE_DIGIT,CONSISTING_TWO_DIGIT,CONSISTING_THREE_DIGIT}Data_Digit_t;
+typedef enum {PRINT_DISTANCE , PRINT_DUTY_CYCLE}Print_Order_t;
+
 
 
 //----------- Section of GLobal Variables ---------------------------------------//

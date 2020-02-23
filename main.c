@@ -2,34 +2,27 @@
 #include "Application.h"
 
 
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------//
-// ----------- Task_Name ------- Run_Time (ms) ------- Task_Run_Mode ------ Task_Status ------ Task_Priority (0 is Highest priority) -------- Task_Shift ------------//
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------//
 
-ST_Task_Info Task_1_Info={TASK_Init,1,PERIODIC,Ready,1,0};
-ST_Task_Info Task_2_Info={Task_Ultrasonic_Trigger,1,PERIODIC,Ready,1,0};
-ST_Task_Info Task_3_Info={Task_Distance,1,PERIODIC,Ready,3,0};
-ST_Task_Info Task_4_Info={Task_LCD_Print,1,PERIODIC,Ready,2,0};
-ST_Task_Info Task_5_Info={Task_Display,1,PERIODIC,Ready,4,0};
 	
 int main(void) 
 {
-	DDRB |= (1<<PB1) | (1<<PB0);
-	DDRC = 0xFF;
-	
-	OS_Init(&OS_cnfg);
+		xTaskCreate(TASK_Init,"TASK_Init",300,NULL,4,NULL);
+		
+		xTaskCreate(Task_Ultrasonic_Trigger,"Task_Ultrasonic_Trigger",100,NULL,4,NULL);
+		
+		xTaskCreate(Task_Distance,"Task_Distance",300,NULL,3,NULL);
+		
+		xTaskCreate(Task_LCD_Print,"Task_LCD_Print",100,NULL,2,NULL);
 
-	// Creation of Task
-	OS_Create_Task(&Task_1_Info);
-	OS_Create_Task(&Task_2_Info);
-	OS_Create_Task(&Task_3_Info);
-	OS_Create_Task(&Task_4_Info);
-	OS_Create_Task(&Task_5_Info);
-	// Start Scheduler 
-	OS_Run();
+		xTaskCreate(Task_Display,"Task_Display",100,NULL,1,NULL);
+		
+		/* Start Scheduler */
+		vTaskStartScheduler();
 
-	while(1)
-	{
+		while(1)
+		{
 
-	}
+		}
 }
+
+
